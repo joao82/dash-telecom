@@ -1,0 +1,154 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  display: flexbox;
+  height: 100vh;
+}
+
+/* Home Screen */
+.menu {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100%;
+  margin: auto;
+}
+
+.link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100px;
+  height: 100px;
+}
+
+.wrapper-title {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 400px;
+  margin-left: 10px;
+}
+
+.title {
+  margin-right: 10px;
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+.sub-title {
+  margin-right: 10px;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
+
+.home-link {
+  height: 50px;
+  width: 50px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.home-link:hover {
+  background-color: rgb(33, 60, 99);
+  box-shadow: 0px 0px 1px 0px #282b3e;
+  color: white;
+}
+
+/*  Exploration */
+
+.card-title {
+  margin: 5px 20px;
+  font-size: 1.2rem;
+}
+
+.card-image {
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.card-icon {
+  height: 40px;
+}
+
+.card-text {
+  margin-left: 10px;
+  font-weight: bolder;
+  font-size: 1.5rem;
+}
+
+.card-text .H3 {
+  color: cyan;
+}
+
+.card-info {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: center;
+}
+
+.card-wrapper {
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: center;
+  margin: 10px;
+}
+
+.card-wrapper:hover {
+  background-color: rgb(33, 60, 99);
+  box-shadow: 0px 0px 1px 0px #282b3e;
+}
+
+.card-header {
+  background-color: #ffff;
+  margin-top: 10px;
+  margin-bottom: 40px;
+  font-size: small;
+}
+
+.card-header-product {
+  background-color: #fff;
+  margin-top: 20px;
+  margin-bottom: 5px;
+  font-size: small;
+}
+
+.card-header-product:hover {
+  background-color: rgb(33, 60, 99);
+  box-shadow: 0px 0px 1px 0px #282b3e;
+}
+
+.card-indicator {
+  margin-top: -5px;
+}
+
+.card-product {
+  background-color: white;
+}
+
+.card-product:hover {
+  background-color: rgb(33, 60, 99);
+  box-shadow: 0px 0px 1px 0px #282b3e;
+}
+
+.persona-card {
+  background-color: white;
+  border-radius: 0.5rem;
+  border-color: gray;
+  height: 100px;
+}
+
+.persona-card:hover {
+  background-color: rgb(33, 60, 99);
+  box-shadow: 0px 0px 1px 0px #282b3e;
+}
