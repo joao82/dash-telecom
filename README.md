@@ -26,7 +26,7 @@ Challenge to build the most impressive customer segmentation data app to better 
 
 ## Links
 
-- Live Site URL: [@Netlify](https://)
+- Live Site URL: [@Render](https://das-telecom.onrender.com)
 - Solution URL: [@Github](https://github.com/joao82/dash-telecom)
 
 ## Getting Started with Plotly Dash
