@@ -16,16 +16,17 @@ from plotly.subplots import make_subplots
 
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import jaccard_score
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import log_loss
+from sklearn.metrics import mutual_info_score
 import itertools
 
 
 dash.register_page(__name__, name='Prediction')
-
 
 # Data reading convert a CSV file to a pandas data frame
 PATH = pathlib.Path(__file__).parent
@@ -33,41 +34,78 @@ DATA_PATH = PATH.joinpath("data").resolve()
 churn_df = pd.read_csv(DATA_PATH.joinpath('telco-customer-churn-by-IBM.csv'))
 df = churn_df.copy()
 
-# DATA CLEANING
 df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+df['TotalCharges'] = df['TotalCharges'].fillna(0)
 df['TotalCharges'] = df['TotalCharges'].replace(np.nan, 0)
-df['Churn'].replace(['Yes', 'No'], [1, 0], inplace=True)
-df = df.drop(['customerID','PaperlessBilling','StreamingTV','StreamingMovies','DeviceProtection'], axis=1 )
+df['TotalCharges'].isnull().sum()
+df = df.drop(['customerID'], axis=1 )
 
+df.columns = df.columns.str.lower().str.replace(' ', '_')
+string_columns = list(df.dtypes[df.dtypes == 'object'].index)
+for col in string_columns:
+   df[col] = df[col].str.lower().str.replace(' ', '_')
 
-df['gender'].replace(['Female', 'Male'], [1, 0], inplace=True)
-df['Partner'].replace(['Yes', 'No'], [1, 0], inplace=True)
-df['Dependents'].replace(['Yes', 'No'], [1, 0], inplace=True)
-df['PhoneService'].replace(['Yes', 'No'], [1, 0], inplace=True)
-df['MultipleLines'].replace(['No phone service', 'No', 'Yes'], [2, 1, 0], inplace=True)
-df['InternetService'].replace(['DSL', 'Fiber optic', 'No'], [2, 1, 0], inplace=True)
-df['OnlineSecurity'].replace(['No', 'Yes', 'No internet service'], [1, 2, 0], inplace=True)
-df['OnlineBackup'].replace(['No', 'Yes', 'No internet service'], [1, 2,0], inplace=True)
-df['TechSupport'].replace(['No', 'Yes', 'No internet service'], [1, 2,0], inplace=True)
-df['Contract'].replace(['Month-to-month', 'One year', 'Two year'], [1, 2,0], inplace=True)
-df['PaymentMethod'].replace(['Electronic check', 'Mailed check', 'Bank transfer (automatic)', 'Credit card (automatic)'], [3, 2, 1, 0], inplace=True)
+df.churn = (df.churn == 'yes').astype(int)
 
-y_col = 'Churn'
-feature_cols = [x for x in df.columns if x != y_col]
+df_train_full, df_test = train_test_split(df, test_size=0.2, random_state=1)
+df_train, df_val = train_test_split(df_train_full, test_size=0.33, random_state=11)
 
-X_data = df[feature_cols]
-y_data = df[y_col]
+y_train = df_train.churn.values
+y_val = df_val.churn.values
 
-X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.2, random_state=4)
+del df_train['churn']
+del df_val['churn']
 
-# Compute the Logistic Regression Model
-LR = LogisticRegression(
-    C=0.01, 
-    solver='liblinear',
-    class_weight=None, dual=False, fit_intercept=True,
-    intercept_scaling=1, l1_ratio=None, max_iter=100,
-    multi_class='ovr', n_jobs=None, penalty='l2',
-    random_state=0, tol=0.0001, verbose=0, warm_start=False).fit(X_train,y_train)
+categorical = ['gender', 'seniorcitizen', 'partner', 'dependents',
+               'phoneservice', 'multiplelines', 'internetservice',
+               'onlinesecurity', 'onlinebackup', 'deviceprotection',
+               'techsupport', 'streamingtv', 'streamingmovies',
+               'contract', 'paperlessbilling', 'paymentmethod']
+
+numerical = ['tenure', 'monthlycharges', 'totalcharges']
+
+def calculate_mi(series):
+    return mutual_info_score(series, df_train_full.churn)
+
+df_mi = df_train_full[categorical].apply(calculate_mi)
+df_mi = df_mi.sort_values(ascending=False).to_frame(name='MI')
+
+df_train_full[numerical].corrwith(df_train_full.churn).to_frame('correlation')
+df_train_full.groupby(by='churn')[numerical].mean()
+
+train_dict = df_train[categorical + numerical].to_dict(orient='records')
+
+dv = DictVectorizer(sparse=False)
+dv.fit(train_dict)
+X_train = dv.transform(train_dict)
+dv.get_feature_names_out()
+
+model = LogisticRegression(solver='liblinear', random_state=1)
+model.fit(X_train, y_train)
+
+val_dict = df_val[categorical + numerical].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+model.predict_proba(X_val)
+y_pred = model.predict_proba(X_val)[:, 1]
+churn = y_pred > 0.5
+dict(zip(dv.get_feature_names_out(), model.coef_[0].round(3)))
+
+subset = ['contract', 'tenure', 'totalcharges']
+train_dict_small = df_train[subset].to_dict(orient='records')
+dv_small = DictVectorizer(sparse=False)
+dv_small.fit(train_dict_small)
+
+X_small_train = dv_small.transform(train_dict_small)
+dv_small.get_feature_names_out()
+
+model_small = LogisticRegression(solver='liblinear', random_state=1)
+model_small.fit(X_small_train, y_train)
+dict(zip(dv_small.get_feature_names_out(), model_small.coef_[0].round(3)))
+
+val_dict_small = df_val[subset].to_dict(orient='records')
+X_small_val = dv_small.transform(val_dict_small)
+y_pred_small = model_small.predict_proba(X_small_val)[:, 1]
 
 
 header = html.H3(
@@ -243,7 +281,7 @@ PaymentMethod = html.Div(
 MonthlyCharges = html.Div(
     [
         dbc.Label(["Expected Customer Monthly Charges"], className="fw-bold"),
-        dcc.Input(id="MonthlyCharges", type="number", placeholder="1000"),
+        dcc.Input(id="MonthlyCharges", value = 79.85, type="number", placeholder="Indicate Monthly Charges"),
     ],
     className="mb-4",
 )
@@ -251,7 +289,7 @@ MonthlyCharges = html.Div(
 TotalCharges = html.Div(
     [
         dbc.Label(["Expected Customer Total Charges"], className="fw-bold"),
-        dcc.Input(id="TotalCharges", type="number", placeholder="1000"),
+        dcc.Input(id="TotalCharges", value = 3320.75 ,type="number", placeholder="Indicate Total Charges"),
     ],
     className="mb-4",
 )
@@ -281,7 +319,7 @@ form = dbc.Form([
         dbc.Col(html.Div(control_services2), xs=12, sm=12, md=4, lg=4, xl=4, className="mb-2")
         ]),
     dbc.Row([
-        dbc.Col( html.Button('Submit', id='btn', n_clicks=0), xs=12, sm=6, md=2, lg=2, xl=2, className="")
+        dbc.Col( dbc.Button('Submit', id='btn', n_clicks=0), xs=12, sm=6, md=2, lg=2, xl=2, className="my-6")
         ],
         className="d-flex justify-content-center m-2"),
 ])
@@ -320,42 +358,50 @@ layout = dbc.Container([
 )
 def update_output(n_clicks, gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService, MultipleLines, InternetService, OnlineSecurity,  OnlineBackup, TechSupport, Contract, PaymentMethod, MonthlyCharges, TotalCharges):
     
-    if MonthlyCharges != '':
-        form_data = [gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService, MultipleLines, InternetService, OnlineSecurity, OnlineBackup, TechSupport, Contract, PaymentMethod, MonthlyCharges, TotalCharges]
+    if MonthlyCharges != '' and TotalCharges != '':
         
-        columns_data = ['gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure', 'PhoneService', 'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 'TechSupport', 'Contract', 'PaymentMethod', 'MonthlyCharges', 'TotalCharges']
+        customer = {
+            # 'customerid': '8879-zkjof',
+            'gender': gender,
+            'seniorcitizen': SeniorCitizen,
+            'partner': Partner,
+            'dependents': Dependents,
+            'tenure': tenure,
+            'phoneservice': PhoneService,
+            'multiplelines': MultipleLines,
+            'internetservice': InternetService,
+            'onlinesecurity': OnlineSecurity,
+            'onlinebackup': OnlineBackup,
+            'deviceprotection': 'yes',
+            'techsupport': TechSupport,
+            'streamingtv': 'yes',
+            'streamingmovies': 'yes',
+            'contract': Contract,
+            'paperlessbilling': 'yes',
+            'paymentmethod': PaymentMethod,
+            'monthlycharges': MonthlyCharges,
+            'totalcharges': TotalCharges,
+            }
         
-        res = {}
-        for key in columns_data:
-            for value in form_data:
-                res[key] = value
-                form_data.remove(value)
-                break
-            
-        X = pd.DataFrame(res, index=[0])
+        X_test = dv.transform([customer])
+        prediction = model.predict_proba(X_test)[0, 1] * 100
         
-        X['gender'].replace(['Female', 'Male'], [1, 0], inplace=True)
-        X['Partner'].replace(['Yes', 'No'], [1, 0], inplace=True)
-        X['Dependents'].replace(['Yes', 'No'], [1, 0], inplace=True)
-        X['PhoneService'].replace(['Yes', 'No'], [1, 0], inplace=True)
-        X['MultipleLines'].replace(['No phone service', 'No', 'Yes'], [2,1, 0], inplace=True)
-        X['InternetService'].replace(['DSL', 'Fiber optic', 'No'], [2,1, 0], inplace=True)
-        X['OnlineSecurity'].replace(['No', 'Yes', 'No internet service'], [1,2, 0], inplace=True)
-        X['OnlineBackup'].replace(['No', 'Yes', 'No internet service'], [1,2, 0], inplace=True)
-        X['TechSupport'].replace(['No', 'Yes', 'No internet service'], [1, 2,0], inplace=True)
-        X['Contract'].replace(['Month-to-month', 'One year', 'Two year'], [1, 2,0], inplace=True)
-        X['PaymentMethod'].replace(['Electronic check', 'Mailed check', 'Bank transfer (automatic)', 'Credit card (automatic)'], [3, 2, 1, 0], inplace=True)
-        
-        result = LR.predict(X)
-        if result == 1:
+        if prediction > 50:
             return html.Div([
-                html.I(className="bi bi-x-lg text-danger"),
-                html.H2("Customer Churn", className="text-danger")
-                ])
+                html.Img(src=r'assets/images/furious.png', alt='client churn', className="churn-image"),
+                html.H2(
+                    "Client with {} % of probability to churn.".format((round(prediction, 2))),
+                    className="text-danger"
+                    )
+                ], className="d-flex justify-content-center align-items-center m-auto mb-4")
         else:
             return html.Div([
-                html.I(className="bi bi-check2-circle text-danger"),
-                html.H2("Customer Not Churn", className="text-success")
-                ])
+                html.Img(src=r'assets/images/happy.png', alt='man', className="churn-image"),
+                html.H2(
+                    "Client with {} % of probability to churn.".format((round(prediction, 2))),
+                    className="text-success"
+                    )
+                ], className="d-flex align-items-center m-auto mb-4")
+            
     else:
         return html.Div([html.P("Complete all the fields")])

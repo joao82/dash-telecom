@@ -43,7 +43,7 @@ NavLinks = dbc.Container(
         dbc.Row(
             [
                 dbc.Col([
-                    html.Div([theme_switch], className="d-flex align-items-center mt-2 mb-2 me-4"),
+                    html.Div([theme_switch], className="d-flex align-items-center my-2"),
                     html.Div([
                         dbc.NavLink([
                             html.Div(page["name"],className="text-light ms-3"),
@@ -73,7 +73,7 @@ navbar = dbc.Navbar(
                     align="center",
                     className="g-0",
                 ),
-            dbc.NavbarToggler(id="navbar-toggler", n_clicks=0, className="m-2"),
+            dbc.NavbarToggler(id="navbar-toggler", n_clicks=0, className="m-1"),
             dbc.Collapse(
                 NavLinks,
                 id="navbar-collapse",
